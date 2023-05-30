@@ -1,7 +1,5 @@
-# Code for "TSM: Temporal Shift Module for Efficient Video Understanding"
-# arXiv:1811.08383
-# Ji Lin*, Chuang Gan, Song Han
-# {jilin, songhan}@mit.edu, ganchuang@csail.mit.edu
+# Code for "TQP : An Efficient Video Quality Assessment Framework for Adaptive Bitrate Video Streaming"
+# Adapted from arXiv:1811.08383
 
 import os
 import time
@@ -145,8 +143,8 @@ def main():
                    image_tmpl=prefix,
                    transform=torchvision.transforms.Compose([
                        train_augmentation,
-                       Stack(roll=(args.arch in ['BNInception', 'InceptionV3'])),
-                       ToTorchFormatTensor(div=(args.arch not in ['BNInception', 'InceptionV3'])),
+                       Stack(roll=(args.arch in ['EfficientNet_B0'])),
+                       ToTorchFormatTensor(div=(args.arch not in ['EfficientNet_B0'])),
                        normalize,
                    ]), dense_sample=args.dense_sample),
         batch_size=args.batch_size, shuffle=True,
@@ -162,8 +160,8 @@ def main():
                    transform=torchvision.transforms.Compose([
                        GroupScale(int(scale_size)),
                        GroupCenterCrop(crop_size),
-                       Stack(roll=(args.arch in ['BNInception', 'InceptionV3'])),
-                       ToTorchFormatTensor(div=(args.arch not in ['BNInception', 'InceptionV3'])),
+                       Stack(roll=(args.arch in ['EfficientNet_B0'])),
+                       ToTorchFormatTensor(div=(args.arch not in ['EfficientNet_B0'])),
                        normalize,
                    ]), dense_sample=args.dense_sample),
         batch_size=args.batch_size, shuffle=False,
@@ -171,7 +169,7 @@ def main():
 
     # define loss function (criterion) and optimizer
     if args.loss_type == 'nll':
-        criterion = torch.nn.CrossEntropyLoss().cuda()
+        criterion = torch.nn.MSELoss().cuda()
     else:
         raise ValueError("Unknown loss type")
 
@@ -214,9 +212,9 @@ def main():
                 'optimizer': optimizer.state_dict(),
                 'best_prec1': best_prec1,
             }, is_best)
-TrainingAccuracy=[]
+TrainingRMSE=[]
 TrainingLoss=[]
-validationAccuracy=[]
+validationRMSE=[]
 validationLoss=[]
 def train(train_loader, model, criterion, optimizer, epoch, log, tf_writer):
     batch_time = AverageMeter()
@@ -247,7 +245,7 @@ def train(train_loader, model, criterion, optimizer, epoch, log, tf_writer):
         loss = criterion(output, target_var)
 
         # measure accuracy and record loss
-        prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
+        prec1, prec5 = rmse(output.data, target, topk=(1, 5))
         losses.update(loss.item(), input.size(0))
         top1.update(prec1.item(), input.size(0))
         top5.update(prec5.item(), input.size(0))
@@ -280,19 +278,18 @@ def train(train_loader, model, criterion, optimizer, epoch, log, tf_writer):
             log.flush()
         
     #print('loss: ',loss.avg)
-    print('Training Accuracy: ',top1.avg)
+    print('Training RMSE: ',rmse.avg)
     print('Training Losses: ',losses.avg)
-    TrainingAccuracy.append(top1.avg)
+    TrainingRMSE.append(rmse.avg)
     TrainingLoss.append(losses.avg)
-    print('Length: ',len(TrainingLoss),len(TrainingAccuracy))
+    print('Length: ',len(TrainingLoss),len(TrainingRMSE))
     print('List: ',TrainingLoss)
-    print('List: ',TrainingAccuracy)
+    print('List: ',TrainingRMSE)
     tf_writer.add_scalar('loss/train', losses.avg, epoch)
-    tf_writer.add_scalar('acc/train_top1', top1.avg, epoch)
-    tf_writer.add_scalar('acc/train_top5', top5.avg, epoch)
+    tf_writer.add_scalar('acc/train_top1', rmse.avg, epoch)
     tf_writer.add_scalar('lr', optimizer.param_groups[-1]['lr'], epoch)
     np.save('TrainingLoss.npy',TrainingLoss)
-    np.save('TrainingAccuracy.npy',TrainingAccuracy)
+    np.save('TrainingRMSE.npy',TrainingRMSE)
 
 def validate(val_loader, model, criterion, epoch, log=None, tf_writer=None):
     batch_time = AverageMeter()
@@ -313,7 +310,7 @@ def validate(val_loader, model, criterion, epoch, log=None, tf_writer=None):
             loss = criterion(output, target)
 
             # measure accuracy and record loss
-            prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
+            prec1, prec5 = rmse(output.data, target)
 
             losses.update(loss.item(), input.size(0))
             top1.update(prec1.item(), input.size(0))
@@ -329,19 +326,18 @@ def validate(val_loader, model, criterion, epoch, log=None, tf_writer=None):
                           'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
                           'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
                           'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                    i, len(val_loader), batch_time=batch_time, loss=losses,
-                    top1=top1, top5=top5))
+                    i, len(val_loader), batch_time=batch_time, loss=losses))
                 print(output)
                 if log is not None:
                     log.write(output + '\n')
                     log.flush()
 
-    output = ('Testing Results: Prec@1 {top1.avg:.3f} Prec@5 {top5.avg:.3f} Loss {loss.avg:.5f}'
-              .format(top1=top1, top5=top5, loss=losses))
+    output = ('Testing Results: RMSE {rmse.avg:.4f} Loss {loss.avg:.4f}'
+              .format(rmse, loss=losses))
     print(output)
-    print('Validation Accuracy: ',top1.avg)
+    print('Validation RMSE: ',rmse.avg)
     print('Validation Losses: ',losses.avg)
-    validationAccuracy.append(top1.avg)
+    validationAccuracy.append(rmse.avg)
     validationLoss.append(losses.avg)
     print('Length: ',len(validationLoss))
     print('List: ',validationLoss)
@@ -351,12 +347,11 @@ def validate(val_loader, model, criterion, epoch, log=None, tf_writer=None):
 
     if tf_writer is not None:
         tf_writer.add_scalar('loss/test', losses.avg, epoch)
-        tf_writer.add_scalar('acc/test_top1', top1.avg, epoch)
-        tf_writer.add_scalar('acc/test_top5', top5.avg, epoch)
-    np.save('val_lost_values.npy',validationLoss)
-    np.save('validationAccuracy.npy',validationAccuracy)
+        tf_writer.add_scalar('RMSE/avg_rmse', rmse.avg, epoch)
+        np.save('val_lost_values.npy',validationLoss)
+    np.save('validationRMSE.npy',validationRMSE)
 
-    return top1.avg
+    return rmse.avg
 
 
 def save_checkpoint(state, is_best):
@@ -393,7 +388,7 @@ def check_rootfolders():
             print('creating folder ' + folder)
             os.mkdir(folder)
 
-#print(np.load('/TrainingAccuracy.npy'))
+#print(np.load('/TrainingRMSE.npy'))
 #print(np.load('/TrainingLoss.npy'))
 if __name__ == '__main__':
     main()
