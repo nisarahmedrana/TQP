@@ -5,10 +5,10 @@ from ops.models import TSN
 from ops.transforms import * 
 from ptflops import get_model_complexity_info
 
-this_weights='checkpoint/TSM_ucfcrime_RGB_mobilenetv2_shift8_blockres_avg_segment8_e25/ckpt.best.pth.tar'
-#this_weights='checkpoint/TSM_ucfcrime_RGB_resnet50_shift8_blockres_avg_segment8_e25/ckpt.best.pth.tar'
+this_weights='checkpoint/TQP_LiveNflix_EfficientnetB0_shift8_blockres_avg_segment8_e25/ckpt.best.pth.tar'
+#this_weights='checkpoint/TQP_Waterloo_EfficientnetB0_resnet50_shift8_blockres_avg_segment8_e25/ckpt.best.pth.tar'
 
-this_arch = 'mobilenetv2'
+this_arch = 'EfficientNet_B0'
 def parse_shift_option_from_log_name(log_name):
     if 'shift' in log_name:
         strings = log_name.split('_')
