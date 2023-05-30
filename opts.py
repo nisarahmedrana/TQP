@@ -1,7 +1,5 @@
-# Code for "TSM: Temporal Shift Module for Efficient Video Understanding"
-# arXiv:1811.08383
-# Ji Lin*, Chuang Gan, Song Han
-# {jilin, songhan}@mit.edu, ganchuang@csail.mit.edu
+# Code for "TQP : An Efficient Video Quality Assessment Framework for Adaptive Bitrate Video Streaming"
+# Adapted from arXiv:1811.08383
 
 import argparse
 parser = argparse.ArgumentParser(description="PyTorch implementation of Temporal Segment Networks")
@@ -10,9 +8,9 @@ parser.add_argument('modality', type=str, choices=['RGB', 'Flow'])
 parser.add_argument('--train_list', type=str, default="")
 parser.add_argument('--val_list', type=str, default="")
 parser.add_argument('--root_path', type=str, default="")
-parser.add_argument('--store_name', type=str, default="TSM_ucfCrime_RGB_resnet50_shift8_blockres_avg_segment8_e25")
+parser.add_argument('--store_name', type=str, default="Waterloo")
 # ========================= Model Configs ==========================
-parser.add_argument('--arch', type=str, default="BNInception")
+parser.add_argument('--arch', type=str, default="EfficientNet_B0")
 parser.add_argument('--num_segments', type=int, default=3)
 parser.add_argument('--consensus_type', type=str, default='avg')
 parser.add_argument('--k', type=int, default=3)
